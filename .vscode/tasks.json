@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build and Run Go",
+            "type": "shell",
+            "command": "go build -o ./todo && ./todo",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "detail": "Компиляция и запуск программы"
+        }
+    ]
+}
