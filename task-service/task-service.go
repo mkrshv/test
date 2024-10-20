@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// Структура единицы репозитория - Task.
 type Task struct {
 	ID      string `json:"id"`
 	Date    string `json:"date"`
@@ -16,23 +17,11 @@ type Task struct {
 	Repeat  string `json:"repeat"`
 }
 
-// type Task struct {
-// 	ID       string
-// 	Date     string
-// 	Title    string
-// 	Comment  string
-// 	Repeat   string
-// 	NextDate string
-// }
-
-// type TaskHandle struct {
-// 	t Task
-// }
-
 type TaskHandler interface {
 	GetNextRepeatDate() (string, error)
 }
 
+// Возвращает новую дату для задачи в зависимости от значения, указанного в поле repeat.
 func (t *Task) GetNextRepeatDate() (string, error) {
 	if t.Date == "" {
 		t.Date = time.Now().Format("20060102")
@@ -184,7 +173,7 @@ func (t *Task) GetNextRepeatDate() (string, error) {
 
 				taskDate = taskDate.AddDate(0, 1, 0)
 			}
-			//
+
 		}
 
 		found = false
@@ -216,6 +205,7 @@ func (t *Task) GetNextRepeatDate() (string, error) {
 	}
 }
 
+// Вспомогательная функция, проверяющая есть ли в месяце дни, соответствующие указателю repeat.
 func checkFirstMonth(daysNum []int, taskDate time.Time) time.Time {
 	startMonth := taskDate.Month()
 	found := false
@@ -245,6 +235,8 @@ func checkFirstMonth(daysNum []int, taskDate time.Time) time.Time {
 	return taskDate
 }
 
+// Возвращает новую дату для задачи в зависимости от значения, указанного в поле repeat.
+// Сделана для прохождения тестов. Логика не отличается от используемой в программе функции.
 func (t *Task) GetNextRepeatDateTest(now string) (string, error) {
 	nowTime, err := time.Parse("20060102", now)
 	if err != nil {

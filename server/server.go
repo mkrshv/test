@@ -17,6 +17,7 @@ func NewSrv() Server {
 	return Server{HttpServer: srv, Handler: h}
 }
 
+// Инициализирует сервер со всем нужными ручками для работы с фронтом.
 func (s Server) Run(port string) {
 
 	webDir := "./web"

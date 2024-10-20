@@ -13,6 +13,7 @@ type Handler struct {
 	RP repository.RepositoryProcesser
 }
 
+// Интерфейс для работы с объектом типа обработчик (Handler).
 type HandleProcesser interface {
 	HandleTask(w http.ResponseWriter, r *http.Request)
 	HandleDate(w http.ResponseWriter, r *http.Request)
@@ -30,6 +31,7 @@ func NewHandler() Handler {
 	return Handler{RP: rp}
 }
 
+// Обработчик возвращающий следующую даты для выполненной задачи.
 func (h Handler) HandleDate(w http.ResponseWriter, r *http.Request) {
 	task := new(taskservice.Task)
 	task.Date = r.FormValue("date")
@@ -44,6 +46,7 @@ func (h Handler) HandleDate(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(nextDt))
 }
 
+// Обработчик, поведение которого зависит от метода в r *http.Request.
 func (h Handler) HandleTask(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
@@ -59,6 +62,7 @@ func (h Handler) HandleTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Вспомогательная функция, посылающая ответ об ошибке в формате JSON.
 func JsonErr(w http.ResponseWriter, statusCode int, message string) {
 	w.WriteHeader(statusCode)
 
@@ -78,6 +82,7 @@ func JsonErr(w http.ResponseWriter, statusCode int, message string) {
 	w.Write(response)
 }
 
+// Вспомогательная функция, посылающая ответ на запрос в формате JSON.
 func JsonResponse(w http.ResponseWriter, statusCode int, id string) {
 	w.WriteHeader(statusCode)
 
@@ -97,6 +102,7 @@ func JsonResponse(w http.ResponseWriter, statusCode int, id string) {
 	w.Write(response)
 }
 
+// Обработчик размещающий задачу в репозитории, если она  соответствует требованиям.
 func (h Handler) PostHandle(w http.ResponseWriter, r *http.Request) {
 	var newTask taskservice.Task
 	var buf bytes.Buffer
@@ -124,6 +130,7 @@ func (h Handler) PostHandle(w http.ResponseWriter, r *http.Request) {
 	JsonResponse(w, http.StatusOK, id)
 }
 
+// Обработчик возвращающий список из 10 ближайших задач.
 func (h Handler) GetTasksHandle(w http.ResponseWriter, r *http.Request) {
 	taskSLice, err := h.RP.GetTaskList()
 	if err != nil {
@@ -148,6 +155,7 @@ func (h Handler) GetTasksHandle(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+// Обработчик возвращающий задачу по id.
 func (h Handler) GetTaskHandle(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
 
@@ -165,6 +173,7 @@ func (h Handler) GetTaskHandle(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+// Обработчик обновляющий задачу.
 func (h Handler) PutTaskHandle(w http.ResponseWriter, r *http.Request) {
 
 	var buf bytes.Buffer
@@ -193,6 +202,7 @@ func (h Handler) PutTaskHandle(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// Обработчик выполнения задачи.
 func (h Handler) DoneTaskeHandle(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
 
@@ -209,6 +219,7 @@ func (h Handler) DoneTaskeHandle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Обработчик удаления задачи.
 func (h Handler) DeleteTaskeHandle(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
 	err := h.RP.DeleteTask(id)

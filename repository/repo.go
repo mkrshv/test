@@ -18,6 +18,7 @@ type Repository struct {
 	Repo *sql.DB
 }
 
+// Интерфейс для работы с репозиторием
 type RepositoryProcesser interface {
 	AddTask(task taskservice.Task) (string, error)
 	GetTaskList() ([]taskservice.Task, error)
@@ -27,6 +28,7 @@ type RepositoryProcesser interface {
 	DeleteTask(id string) error
 }
 
+// Создает (в случае необходимости) и открывает доступ к БД. Возвращает ссылку на объект типа Repository.
 func NewRepo() (*Repository, error) {
 
 	dbFile := os.Getenv("TODO_DFILE")
@@ -54,6 +56,7 @@ func NewRepo() (*Repository, error) {
 	return &repo, nil
 }
 
+// Вспомогательная функция, проверяющая наличие БД в месте запуска программы.
 func dbCheck() string {
 	appPath, err := os.Executable()
 	if err != nil {
@@ -70,6 +73,7 @@ func dbCheck() string {
 	return dbFile
 }
 
+// Добавляет задачу в БД.
 func (repo *Repository) AddTask(task taskservice.Task) (string, error) {
 	nextDate, err := task.GetNextRepeatDate()
 	if err != nil {
@@ -122,6 +126,7 @@ func (repo *Repository) AddTask(task taskservice.Task) (string, error) {
 	return strid, nil
 }
 
+// Возвращает список (срез) 10 ближайших по дате задач.
 func (repo *Repository) GetTaskList() ([]taskservice.Task, error) {
 	result := []taskservice.Task{}
 
@@ -149,6 +154,7 @@ func (repo *Repository) GetTaskList() ([]taskservice.Task, error) {
 	return result, nil
 }
 
+// Возвращает задачу по id в виде структуры типа Task.
 func (repo *Repository) GetTask(id string) (taskservice.Task, error) {
 	task := taskservice.Task{}
 	if id == "" {
@@ -162,6 +168,7 @@ func (repo *Repository) GetTask(id string) (taskservice.Task, error) {
 	return task, nil
 }
 
+// Обновляет задачу, переданную в запросе.
 func (repo *Repository) UpdateTask(task taskservice.Task) error {
 	_, err := task.GetNextRepeatDate()
 	if err != nil {
@@ -201,6 +208,8 @@ func (repo *Repository) UpdateTask(task taskservice.Task) error {
 	return nil
 }
 
+// Механизм выполнения задачи: если поле repeat пустое - удаляет задачу,
+// в противном случае обновляет дату имеющейся задачи с тем же id.
 func (repo *Repository) DoneTask(id string) error {
 	task, err := repo.GetTask(id)
 	if err != nil {
@@ -230,6 +239,7 @@ func (repo *Repository) DoneTask(id string) error {
 	return nil
 }
 
+// Удаляет задачу с заданным ID.
 func (repo *Repository) DeleteTask(id string) error {
 	row, err := repo.Repo.Exec("DELETE FROM scheduler WHERE id=:id", sql.Named("id", id))
 	if err != nil {
