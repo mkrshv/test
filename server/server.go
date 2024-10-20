@@ -27,6 +27,10 @@ func (s Server) Run(port string) {
 
 	http.HandleFunc("/api/task", s.Handler.HandleTask)
 
+	http.HandleFunc("/api/tasks", s.Handler.GetTasksHandle)
+
+	http.HandleFunc("/api/task/done", s.Handler.DoneTaskeHandle)
+
 	fmt.Println("Server starting at", port)
 
 	err := http.ListenAndServe(port, nil)
