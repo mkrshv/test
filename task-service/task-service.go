@@ -9,12 +9,11 @@ import (
 )
 
 type Task struct {
-	ID       string `json:"id"`
-	Date     string `json:"date"`
-	Title    string `json:"title,omitempty"`
-	Comment  string `json:"comment"`
-	Repeat   string `json:"repeat"`
-	NextDate string
+	ID      string `json:"id"`
+	Date    string `json:"date"`
+	Title   string `json:"title,omitempty"`
+	Comment string `json:"comment"`
+	Repeat  string `json:"repeat"`
 }
 
 // type Task struct {
@@ -35,6 +34,9 @@ type TaskHandler interface {
 }
 
 func (t *Task) GetNextRepeatDate() (string, error) {
+	if t.Date == "" {
+		t.Date = time.Now().Format("20060102")
+	}
 	switch {
 	case strings.HasPrefix(t.Repeat, "d "):
 		daysStr := strings.TrimPrefix(t.Repeat, "d ")
@@ -210,7 +212,6 @@ func (t *Task) GetNextRepeatDate() (string, error) {
 	case t.Repeat == "":
 		return "", nil
 	default:
-		fmt.Println("11111111111")
 		return "", fmt.Errorf("неверный формат поля 't.Repeat': %s", t.Repeat)
 	}
 }
