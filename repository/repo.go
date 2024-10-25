@@ -14,6 +14,12 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+const (
+	ErrNoId     = "Не указан идентификатор"
+	ErrNotFound = "Задача не найдена"
+	DateFormat  = "20060102"
+)
+
 type Repository struct {
 	Repo *sql.DB
 }
@@ -80,36 +86,32 @@ func (repo *Repository) AddTask(task taskservice.Task) (string, error) {
 		return "", err
 	}
 
-	fmt.Println(nextDate)
-
 	if task.Title == "" {
 		return "", errors.New("no title")
 	}
 
 	if task.Date == "" {
-		task.Date = time.Now().Format("20060102") // Присваиваем текущую дату
+		task.Date = time.Now().Format(DateFormat) // Присваиваем текущую дату
 	}
 
-	date, err := time.Parse("20060102", task.Date)
+	date, err := time.Parse(DateFormat, task.Date)
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(date, "1")
 	// Здесь можно проверять, если дата уже прошла
 	if date.Before(time.Now().Truncate(24 * time.Hour)) {
-		fmt.Println(date.Before(time.Now()))
-		if task.Repeat == "" {
-			date = time.Now() // Если нет повторения, ставим текущую дату
-		} else {
-			nextDateParsed, err := time.Parse("20060102", nextDate)
+		switch task.Repeat {
+		case "":
+			date = time.Now()
+		default:
+			nextDateParsed, err := time.Parse(DateFormat, nextDate)
 			if err != nil {
 				return "", err
 			}
 			date = nextDateParsed // Иначе используем следующую дату
 		}
 	}
-	fmt.Println(date, "2")
-	task.Date = date.Format("20060102") // Устанавливаем отформатированную дату
+	task.Date = date.Format(DateFormat) // Устанавливаем отформатированную дату
 
 	res, err := repo.Repo.Exec("INSERT INTO scheduler (date, title, comment, repeat) VALUES (:date, :title, :comment, :repeat)",
 		sql.Named("date", task.Date),
@@ -122,7 +124,6 @@ func (repo *Repository) AddTask(task taskservice.Task) (string, error) {
 
 	id, _ := res.LastInsertId()
 	strid := strconv.Itoa(int(id))
-	fmt.Println(strid)
 	return strid, nil
 }
 
@@ -141,15 +142,15 @@ func (repo *Repository) GetTaskList() ([]taskservice.Task, error) {
 		err := rows.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 		if err != nil {
 			fmt.Println(err)
-			continue
+			return result, err
 		}
 		result = append(result, task)
 	}
 
 	if err := rows.Err(); err != nil {
 		fmt.Println(err)
+		return result, err
 	}
-	fmt.Println(result)
 
 	return result, nil
 }
@@ -160,7 +161,7 @@ func (repo *Repository) GetTask(id string) (taskservice.Task, error) {
 	if id == "" {
 		return task, fmt.Errorf(ErrNoId)
 	}
-	row := repo.Repo.QueryRow("SELECT * FROM scheduler WHERE id = :id", sql.Named("id", id))
+	row := repo.Repo.QueryRow("SELECT id, date, title, comment, repeat FROM scheduler WHERE id = :id", sql.Named("id", id))
 	err := row.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 	if err != nil {
 		return task, fmt.Errorf(ErrNotFound)
@@ -175,7 +176,7 @@ func (repo *Repository) UpdateTask(task taskservice.Task) error {
 		return err
 	}
 
-	if _, err = time.Parse("20060102", task.Date); err != nil {
+	if _, err = time.Parse(DateFormat, task.Date); err != nil {
 		return errors.New("wrong date")
 	}
 
@@ -217,11 +218,7 @@ func (repo *Repository) DoneTask(id string) error {
 	}
 
 	if task.Repeat == "" {
-		_, err = repo.Repo.Exec("DELETE FROM scheduler WHERE id = :id", sql.Named("id", task.ID))
-		if err != nil {
-			return err
-		}
-		return nil
+		repo.DeleteTask(id)
 	}
 
 	nextDate, err := task.GetNextRepeatDate()
@@ -254,8 +251,3 @@ func (repo *Repository) DeleteTask(id string) error {
 	}
 	return nil
 }
-
-const (
-	ErrNoId     = "Не указан идентификатор"
-	ErrNotFound = "Задача не найдена"
-)

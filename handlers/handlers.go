@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"test/repository"
 	taskservice "test/task-service"
@@ -39,6 +40,7 @@ func (h Handler) HandleDate(w http.ResponseWriter, r *http.Request) {
 	now := r.FormValue("now")
 	nextDt, err := task.GetNextRepeatDateTest(now)
 	if err != nil {
+		log.Print(err)
 		JsonErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -110,6 +112,7 @@ func (h Handler) PostHandle(w http.ResponseWriter, r *http.Request) {
 	_, err := buf.ReadFrom(r.Body)
 
 	if err != nil {
+		log.Print(err)
 		JsonErr(w, http.StatusBadRequest, "1234455N")
 		return
 	}
@@ -117,12 +120,14 @@ func (h Handler) PostHandle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-type", "application/json")
 
 	if err := json.Unmarshal(buf.Bytes(), &newTask); err != nil {
+		log.Print(err)
 		JsonErr(w, http.StatusBadRequest, "Ошибка десериализации JSON")
 		return
 	}
 
 	id, err := h.RP.AddTask(newTask)
 	if err != nil {
+		log.Print(err)
 		JsonErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -132,9 +137,16 @@ func (h Handler) PostHandle(w http.ResponseWriter, r *http.Request) {
 
 // Обработчик возвращающий список из 10 ближайших задач.
 func (h Handler) GetTasksHandle(w http.ResponseWriter, r *http.Request) {
+	// search := r.FormValue("search")
+
+	// switch search {
+	// case "":
+
+	// }
+
 	taskSLice, err := h.RP.GetTaskList()
 	if err != nil {
-		fmt.Println("qwe")
+		log.Print(err)
 		JsonErr(w, http.StatusBadRequest, err.Error())
 	}
 
@@ -143,13 +155,13 @@ func (h Handler) GetTasksHandle(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := json.Marshal(respMap)
 	if err != nil {
-		fmt.Println("123")
+		log.Print(err)
 		JsonErr(w, http.StatusInternalServerError, err.Error())
 	}
 	k := make(map[string][]taskservice.Task)
 	err = json.Unmarshal(resp, &k)
 	if err != nil {
-		fmt.Println("123")
+		log.Print(err)
 	}
 	fmt.Println(k)
 	w.Write(resp)
@@ -161,11 +173,13 @@ func (h Handler) GetTaskHandle(w http.ResponseWriter, r *http.Request) {
 
 	task, err := h.RP.GetTask(id)
 	if err != nil {
+		log.Print(err)
 		JsonErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	resp, err := json.Marshal(task)
 	if err != nil {
+		log.Print(err)
 		JsonErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -180,23 +194,25 @@ func (h Handler) PutTaskHandle(w http.ResponseWriter, r *http.Request) {
 	task := taskservice.Task{}
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Print(err)
 	}
 
 	err = json.Unmarshal(buf.Bytes(), &task)
 	if err != nil {
+		log.Print(err)
 		JsonErr(w, http.StatusInternalServerError, err.Error())
-		fmt.Println(task)
 		return
 	}
 	err = h.RP.UpdateTask(task)
 	if err != nil {
+		log.Print(err)
 		JsonErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	response := struct{}{}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
@@ -208,6 +224,7 @@ func (h Handler) DoneTaskeHandle(w http.ResponseWriter, r *http.Request) {
 
 	err := h.RP.DoneTask(id)
 	if err != nil {
+		log.Print(err)
 		JsonErr(w, http.StatusBadRequest, "wrong id")
 		return
 	}
@@ -215,6 +232,7 @@ func (h Handler) DoneTaskeHandle(w http.ResponseWriter, r *http.Request) {
 	response := struct{}{}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -224,12 +242,14 @@ func (h Handler) DeleteTaskeHandle(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
 	err := h.RP.DeleteTask(id)
 	if err != nil {
+		log.Print(err)
 		JsonErr(w, http.StatusBadRequest, "wrong id")
 		return
 	}
 	response := struct{}{}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
