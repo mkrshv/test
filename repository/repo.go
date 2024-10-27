@@ -32,6 +32,7 @@ type RepositoryProcesser interface {
 	UpdateTask(task taskservice.Task) error
 	DoneTask(id string) error
 	DeleteTask(id string) error
+	SearchTask(search string) ([]taskservice.Task, error)
 }
 
 // Создает (в случае необходимости) и открывает доступ к БД. Возвращает ссылку на объект типа Repository.
@@ -219,6 +220,7 @@ func (repo *Repository) DoneTask(id string) error {
 
 	if task.Repeat == "" {
 		repo.DeleteTask(id)
+		return nil
 	}
 
 	nextDate, err := task.GetNextRepeatDate()
@@ -250,4 +252,48 @@ func (repo *Repository) DeleteTask(id string) error {
 		return errors.New("no rows affected")
 	}
 	return nil
+}
+
+func (repo *Repository) SearchTask(search string) ([]taskservice.Task, error) {
+	res := []taskservice.Task{}
+	if date, err := time.Parse("02.01.2006", search); err == nil {
+		rows, err := repo.Repo.Query("SELECT * FROM scheduler WHERE date = :date", sql.Named("date", date.Format(DateFormat)))
+		if err != nil {
+			return res, err
+		}
+
+		for rows.Next() {
+			task := taskservice.Task{}
+			err := rows.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+			if err != nil {
+				return res, err
+			}
+			res = append(res, task)
+		}
+
+		if err := rows.Err(); err != nil {
+			return res, err
+		}
+
+		return res, nil
+	}
+	rows, err := repo.Repo.Query("SELECT * FROM scheduler WHERE title LIKE :search OR comment LIKE :search", sql.Named("search", "%"+search+"%"))
+	if err != nil {
+		return res, err
+	}
+
+	for rows.Next() {
+		task := taskservice.Task{}
+		err := rows.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+		if err != nil {
+			return res, err
+		}
+		res = append(res, task)
+	}
+
+	if err := rows.Err(); err != nil {
+		return res, err
+	}
+
+	return res, nil
 }

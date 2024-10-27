@@ -2,12 +2,16 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"test/repository"
 	taskservice "test/task-service"
+
+	"github.com/golang-jwt/jwt"
 )
 
 type Handler struct {
@@ -22,6 +26,7 @@ type HandleProcesser interface {
 	GetTaskHandle(w http.ResponseWriter, r *http.Request)
 	PutTaskHandle(w http.ResponseWriter, r *http.Request)
 	DoneTaskeHandle(w http.ResponseWriter, r *http.Request)
+	Auth(w http.ResponseWriter, r *http.Request)
 }
 
 func NewHandler() Handler {
@@ -88,12 +93,12 @@ func JsonErr(w http.ResponseWriter, statusCode int, message string) {
 func JsonResponse(w http.ResponseWriter, statusCode int, id string) {
 	w.WriteHeader(statusCode)
 
-	errorResponse := map[string]string{
+	resp := map[string]string{
 		"id": id,
 	}
 
 	// Сериализуем карту в JSON
-	response, err := json.Marshal(errorResponse)
+	response, err := json.Marshal(resp)
 	if err != nil {
 		// В случае ошибки сериализации возвращаем простую текстовую ошибку
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -137,12 +142,26 @@ func (h Handler) PostHandle(w http.ResponseWriter, r *http.Request) {
 
 // Обработчик возвращающий список из 10 ближайших задач.
 func (h Handler) GetTasksHandle(w http.ResponseWriter, r *http.Request) {
-	// search := r.FormValue("search")
+	search := r.FormValue("search")
 
-	// switch search {
-	// case "":
-
-	// }
+	if search != "" {
+		taskSLice, err := h.RP.SearchTask(search)
+		if err != nil {
+			log.Print(err)
+			JsonErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		respMap := make(map[string][]taskservice.Task)
+		respMap["tasks"] = taskSLice
+		resp, err := json.Marshal(respMap)
+		if err != nil {
+			log.Print(err)
+			JsonErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		w.Write(resp)
+		return
+	}
 
 	taskSLice, err := h.RP.GetTaskList()
 	if err != nil {
@@ -163,7 +182,7 @@ func (h Handler) GetTasksHandle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 	}
-	fmt.Println(k)
+
 	w.Write(resp)
 }
 
@@ -252,4 +271,40 @@ func (h Handler) DeleteTaskeHandle(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func (h Handler) Auth(w http.ResponseWriter, r *http.Request) {
+	passwd := os.Getenv("TODO_PASSWORD")
+
+	authPasswd := r.FormValue("password")
+
+	if authPasswd == passwd {
+		jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"sum": sha256.Sum256([]byte(authPasswd)),
+		})
+		tokenString, err := jwtToken.SignedString([]byte(passwd))
+		if err != nil {
+			log.Print(err)
+			JsonErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		fmt.Println(tokenString)
+		w.WriteHeader(http.StatusOK)
+
+		resp := map[string]string{
+			"token": tokenString,
+		}
+
+		response, err := json.Marshal(resp)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		// Записываем результат в http.ResponseWriter
+		w.Write(response)
+		return
+	}
+
+	JsonErr(w, http.StatusUnauthorized, "wrong password")
 }

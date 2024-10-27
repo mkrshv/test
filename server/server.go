@@ -32,6 +32,8 @@ func (s Server) Run(port string) {
 
 	http.HandleFunc("/api/task/done", s.Handler.DoneTaskeHandle)
 
+	http.HandleFunc("/api/signin", s.Handler.Auth)
+
 	fmt.Println("Server starting at", port)
 
 	err := http.ListenAndServe(port, nil)
