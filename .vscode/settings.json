@@ -1,8 +1,12 @@
 {
     "editor.fontSize": 16,
-    "go.formatFlags": [
-        "-local"
-    ],
-    "go.useLanguageServer": false,
-    "editor.formatOnSave": true
+    "go.formatTool": "goimports",
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "always"
+        }
+    },
+    "go.gotoSymbol.includeImports": true,
+    "go.useLanguageServer": true
 }
