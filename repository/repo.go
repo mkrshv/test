@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	taskservice "test/task-service"
+	taskservice "test/task"
 	"time"
 
 	_ "modernc.org/sqlite"

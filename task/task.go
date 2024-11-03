@@ -1,4 +1,4 @@
-package taskservice
+package task
 
 import (
 	"fmt"

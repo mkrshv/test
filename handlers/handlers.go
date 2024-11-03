@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 	"test/repository"
-	taskservice "test/task-service"
+	"test/task"
 
 	"github.com/golang-jwt/jwt"
 )
@@ -27,6 +27,7 @@ type HandleProcesser interface {
 	PutTaskHandle(w http.ResponseWriter, r *http.Request)
 	DoneTaskeHandle(w http.ResponseWriter, r *http.Request)
 	Auth(w http.ResponseWriter, r *http.Request)
+	AuthMiddleware(next http.HandlerFunc) http.HandlerFunc
 }
 
 func NewHandler() Handler {
@@ -39,7 +40,7 @@ func NewHandler() Handler {
 
 // Обработчик возвращающий следующую даты для выполненной задачи.
 func (h Handler) HandleDate(w http.ResponseWriter, r *http.Request) {
-	task := new(taskservice.Task)
+	task := new(task.Task)
 	task.Date = r.FormValue("date")
 	task.Repeat = r.FormValue("repeat")
 	now := r.FormValue("now")
@@ -111,14 +112,14 @@ func JsonResponse(w http.ResponseWriter, statusCode int, id string) {
 
 // Обработчик размещающий задачу в репозитории, если она  соответствует требованиям.
 func (h Handler) PostHandle(w http.ResponseWriter, r *http.Request) {
-	var newTask taskservice.Task
+	var newTask task.Task
 	var buf bytes.Buffer
 
 	_, err := buf.ReadFrom(r.Body)
 
 	if err != nil {
 		log.Print(err)
-		JsonErr(w, http.StatusBadRequest, "1234455N")
+		JsonErr(w, http.StatusBadRequest, "Не удалось прочитать тело запроса")
 		return
 	}
 
@@ -151,7 +152,7 @@ func (h Handler) GetTasksHandle(w http.ResponseWriter, r *http.Request) {
 			JsonErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		respMap := make(map[string][]taskservice.Task)
+		respMap := make(map[string][]task.Task)
 		respMap["tasks"] = taskSLice
 		resp, err := json.Marshal(respMap)
 		if err != nil {
@@ -169,7 +170,7 @@ func (h Handler) GetTasksHandle(w http.ResponseWriter, r *http.Request) {
 		JsonErr(w, http.StatusBadRequest, err.Error())
 	}
 
-	respMap := make(map[string][]taskservice.Task)
+	respMap := make(map[string][]task.Task)
 	respMap["tasks"] = taskSLice
 
 	resp, err := json.Marshal(respMap)
@@ -177,11 +178,8 @@ func (h Handler) GetTasksHandle(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 		JsonErr(w, http.StatusInternalServerError, err.Error())
 	}
-	k := make(map[string][]taskservice.Task)
-	err = json.Unmarshal(resp, &k)
-	if err != nil {
-		log.Print(err)
-	}
+	k := make(map[string][]task.Task)
+	_ = json.Unmarshal(resp, &k)
 
 	w.Write(resp)
 }
@@ -210,7 +208,7 @@ func (h Handler) GetTaskHandle(w http.ResponseWriter, r *http.Request) {
 func (h Handler) PutTaskHandle(w http.ResponseWriter, r *http.Request) {
 
 	var buf bytes.Buffer
-	task := taskservice.Task{}
+	task := task.Task{}
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
 		log.Print(err)
@@ -273,14 +271,28 @@ func (h Handler) DeleteTaskeHandle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type AuthPass struct {
+	Password string `json:"password"`
+}
+
 func (h Handler) Auth(w http.ResponseWriter, r *http.Request) {
 	passwd := os.Getenv("TODO_PASSWORD")
 
-	authPasswd := r.FormValue("password")
+	var buf bytes.Buffer
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		log.Print(err)
+	}
 
-	if authPasswd == passwd {
+	var auth AuthPass
+	err = json.Unmarshal(buf.Bytes(), &auth)
+	if err != nil {
+		log.Print(err)
+	}
+
+	if auth.Password == passwd {
 		jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"sum": sha256.Sum256([]byte(authPasswd)),
+			"sum": sha256.Sum256([]byte(auth.Password)),
 		})
 		tokenString, err := jwtToken.SignedString([]byte(passwd))
 		if err != nil {
@@ -307,4 +319,37 @@ func (h Handler) Auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	JsonErr(w, http.StatusUnauthorized, "wrong password")
+}
+
+func (h Handler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// смотрим наличие пароля
+		pass := os.Getenv("TODO_PASSWORD")
+		if len(pass) > 0 {
+			var jwtToken string // JWT-токен из куки
+			// получаем куку
+			cookie, err := r.Cookie("token")
+			if err == nil {
+				jwtToken = cookie.Value
+			}
+			var valid bool
+
+			token, err := jwt.Parse(jwtToken, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("неожиданный метод подписи: %v", token.Header["alg"])
+				}
+				return []byte(os.Getenv("TODO_PASSWORD")), nil
+			})
+			if err == nil && token.Valid {
+				valid = true
+			}
+
+			if !valid {
+				// возвращаем ошибку авторизации 401
+				http.Error(w, "Authentification required", http.StatusUnauthorized)
+				return
+			}
+		}
+		next(w, r)
+	})
 }
